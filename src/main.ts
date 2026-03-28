@@ -25,6 +25,13 @@ ScrollTrigger.config({
   autoRefreshEvents: "visibilitychange,DOMContentLoaded,load",
 });
 
+const IS_IOS_MOBILE_SAFARI = isIOSMobileSafari();
+
+if (IS_IOS_MOBILE_SAFARI) {
+  // iOS Safariのアドレスバー伸縮によるスクロール停止/戻りを吸収する。
+  ScrollTrigger.normalizeScroll(true);
+}
+
 function combineCleanups(...factories: Array<() => Cleanup | void>): Cleanup {
   const cleanups = factories.map((factory) => factory());
   return () => {
@@ -150,6 +157,10 @@ function setupSectionThemeTriggers(
 
       const onEnter = () => {
         switchHeader();
+
+        if (IS_IOS_MOBILE_SAFARI) {
+          return;
+        }
 
         for (let i = 1; i <= 5; i++) {
           setTimeout(() => {
@@ -583,4 +594,9 @@ function onStudioReady(callback: () => void): void {
 
 // 実行
 onStudioReady(handleHeaderOverlapCheck);
-window.addEventListener("scroll", handleHeaderOverlapCheck, { passive: true });
+
+if (!IS_IOS_MOBILE_SAFARI) {
+  window.addEventListener("scroll", handleHeaderOverlapCheck, {
+    passive: true,
+  });
+}
