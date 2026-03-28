@@ -257,6 +257,8 @@ function resetScrollWithHashRestore(): void {
     // const target = document.querySelector(hash);
     // target?.scrollIntoView({ block: "start" });
     restoreScrollRestoration();
+
+    requestAnimationFrame(() => ScrollTrigger.refresh())
   };
 
   requestAnimationFrame(keepTop);
@@ -357,6 +359,16 @@ function hasHeaderElement(): boolean {
   return document.querySelector("#header") !== null;
 }
 
+function isIOSMobileSafari(): boolean {
+  const ua = navigator.userAgent;
+  const isIOS = /iP(ad|hone|od)/.test(ua);
+  const isWebKit = /WebKit/i.test(ua);
+  const isCriOS = /CriOS/i.test(ua);
+  const isFxiOS = /FxiOS/i.test(ua);
+
+  return isIOS && isWebKit && !isCriOS && !isFxiOS;
+}
+
 function normalizePathname(pathname: string): string {
   return pathname.replace(/\/$/, "") || "/";
 }
@@ -445,7 +457,7 @@ const HOME_ROUTE: RouteSetup = [
     combineCleanups(
       // setupHomeHeroObserver,
       () => setupSectionThemeTriggers(HOME_SECTIONS, TEXTURE_SECTIONS),
-      resetScrollWithHashRestore,
+      // resetScrollWithHashRestore,
     ),
   () => hasAllSelectors([...HOME_SECTIONS, "#home-mv"]),
 ];
@@ -465,10 +477,22 @@ const WORKS_CATEGORY_ROUTE: RouteSetup = [
   () => hasAllSelectors(["#works-list-category"]),
 ];
 
+let lastViewportWidth = window.innerWidth;
+
 const refreshObserver = new ResizeObserver(
   debounce(() => {
+    if (isIOSMobileSafari()) {
+      const widthChanged = Math.abs(window.innerWidth - lastViewportWidth) > 1;
+      lastViewportWidth = window.innerWidth;
+
+      // iOS SafariのURLバー伸縮による高さ変化ではrefreshしない。
+      if (!widthChanged) {
+        return;
+      }
+    }
+
     ScrollTrigger.refresh();
-  }, 100),
+  }, 400),
 );
 
 refreshObserver.observe(document.body);
