@@ -27,11 +27,6 @@ ScrollTrigger.config({
 
 const IS_IOS_MOBILE_SAFARI = isIOSMobileSafari();
 
-if (IS_IOS_MOBILE_SAFARI) {
-  // iOS Safariのアドレスバー伸縮によるスクロール停止/戻りを吸収する。
-  ScrollTrigger.normalizeScroll(true);
-}
-
 function combineCleanups(...factories: Array<() => Cleanup | void>): Cleanup {
   const cleanups = factories.map((factory) => factory());
   return () => {
@@ -134,6 +129,9 @@ function setupSectionThemeTriggers(
   selectors: string[],
   textureSelectors: string[] = [],
 ): Cleanup {
+  if (IS_IOS_MOBILE_SAFARI) {
+    return () => {};
+  }
   const context = gsap.context(() => {
     selectors.forEach((selector) => {
       const section = document.querySelector(selector) as HTMLElement | null;
@@ -275,7 +273,7 @@ function resetScrollWithHashRestore(): void {
     // target?.scrollIntoView({ block: "start" });
     restoreScrollRestoration();
 
-    requestAnimationFrame(() => ScrollTrigger.refresh())
+    requestAnimationFrame(() => ScrollTrigger.refresh());
   };
 
   requestAnimationFrame(keepTop);

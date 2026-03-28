@@ -238,7 +238,7 @@
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 177.77777778dvh;
+  width: 177.77777778vh;
 }
 #press-release {
   overflow: hidden;
