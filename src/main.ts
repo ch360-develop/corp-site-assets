@@ -19,7 +19,11 @@ let currentPath = location.pathname;
 
 gsap.registerPlugin(ScrollTrigger);
 // iOS SafariのURLバー伸縮による高さ変化ではScrollTriggerの内部refreshを走らせない。
-ScrollTrigger.config({ ignoreMobileResize: true });
+ScrollTrigger.config({
+  ignoreMobileResize: true,
+  // 通常スクロール中のアドレスバー変化でresize由来の自動refreshを走らせない。
+  autoRefreshEvents: "visibilitychange,DOMContentLoaded,load",
+});
 
 function combineCleanups(...factories: Array<() => Cleanup | void>): Cleanup {
   const cleanups = factories.map((factory) => factory());
