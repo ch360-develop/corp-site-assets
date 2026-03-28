@@ -1,0 +1,55 @@
+name: Build and Update Dist
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "package.json"
+      - "vite.config.ts"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit and Push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add dist/
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: auto build dist [skip ci]" && git push)
+
+      # --- 【ここから追加：jsDelivrのキャッシュをクリア】 ---
+      - name: Purge jsDelivr cache
+        run: |
+          # パージしたいファイルリスト（実際のビルド出力に合わせる）
+          FILES=(
+            "dist/main.js"
+            "dist/main.css"
+          )
+
+          for FILE in "${FILES[@]}"; do
+            PURGE_URL="https://purge.jsdelivr.net/gh/${{ github.repository }}/$FILE"
+            curl -s "$PURGE_URL"
+            echo "Purged: $PURGE_URL"
+          done

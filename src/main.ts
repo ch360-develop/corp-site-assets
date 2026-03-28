@@ -29,10 +29,20 @@ function combineCleanups(...factories: Array<() => Cleanup | void>): Cleanup {
 }
 
 function addHeaderWhite(): void {
+  return;
   document.querySelector("#header")?.classList.add("white");
 }
 
 function removeHeaderWhite(): void {
+  return;
+  document.querySelector("#header")?.classList.remove("white");
+}
+
+function addHeaderWhite2(): void {
+  document.querySelector("#header")?.classList.add("white");
+}
+
+function removeHeaderWhite2(): void {
   document.querySelector("#header")?.classList.remove("white");
 }
 
@@ -82,6 +92,31 @@ function isLightColor([red, green, blue]: [number, number, number]): boolean {
   return red * 0.299 + green * 0.587 + blue * 0.114 >= 186;
 }
 
+enum BackgroundTone {
+  Dark,
+  Light,
+  Other,
+}
+
+function classifyBackgroundTone(color: string): BackgroundTone {
+  if (isTransparentColor(color)) {
+    return BackgroundTone.Other;
+  }
+
+  const [red, green, blue] = colorToRgb(color);
+  const brightness = red * 0.299 + green * 0.587 + blue * 0.114;
+
+  if (brightness <= 80) {
+    return BackgroundTone.Dark;
+  }
+
+  if (brightness >= 186) {
+    return BackgroundTone.Light;
+  }
+
+  return BackgroundTone.Other;
+}
+
 function setupSectionThemeTriggers(
   selectors: string[],
   textureSelectors: string[] = [],
@@ -109,6 +144,13 @@ function setupSectionThemeTriggers(
 
       const onEnter = () => {
         switchHeader();
+
+        for (let i = 1; i <= 5; i++) {
+          setTimeout(() => {
+            changeHeaderColor();
+          }, i * 100);
+        }
+
         gsap.set("body", { "--active-bg-color": backgroundColor });
 
         if (textureSelectors.includes(selector)) {
@@ -202,6 +244,43 @@ function debounce<T extends unknown[]>(
   };
 }
 
+function throttle<T extends unknown[]>(
+  fn: (...args: T) => void,
+  delayMs: number,
+): (...args: T) => void {
+  let lastRunAt = 0;
+  let timerId: number | undefined;
+  let lastArgs: T | undefined;
+
+  return (...args: T) => {
+    const now = Date.now();
+    const remainingMs = delayMs - (now - lastRunAt);
+
+    lastArgs = args;
+
+    if (remainingMs <= 0) {
+      window.clearTimeout(timerId);
+      timerId = undefined;
+      lastRunAt = now;
+      fn(...args);
+      return;
+    }
+
+    if (timerId !== undefined) {
+      return;
+    }
+
+    timerId = window.setTimeout(() => {
+      lastRunAt = Date.now();
+      timerId = undefined;
+
+      if (lastArgs) {
+        fn(...lastArgs);
+      }
+    }, remainingMs);
+  };
+}
+
 function updateWorksListAlignment(selector: string): void {
   const container = document.querySelector(selector);
   if (!container) {
@@ -244,39 +323,8 @@ function observeWorksList(selector: string): Cleanup | void {
   };
 }
 
-function setupContactHeaderTrigger(): Cleanup {
-  const trigger =
-    document.querySelector("#contact-wrapper") ??
-    document.querySelector("#contact");
-  if (!trigger) {
-    return () => {
-      removeHeaderWhite();
-    };
-  }
-
-  const context = gsap.context(() => {
-    ScrollTrigger.create({
-      trigger,
-      onEnter: addHeaderWhite,
-      onEnterBack: addHeaderWhite,
-      onLeave: removeHeaderWhite,
-      onLeaveBack: removeHeaderWhite,
-      start: "top top",
-      end: "bottom top",
-    });
-
-    return () => {
-      removeHeaderWhite();
-    };
-  });
-
-  return () => {
-    context.revert();
-  };
-}
-
-function hasContactSection(): boolean {
-  return document.querySelector("#contact") !== null;
+function hasHeaderElement(): boolean {
+  return document.querySelector("#header") !== null;
 }
 
 function normalizePathname(pathname: string): string {
@@ -365,7 +413,7 @@ function setupRouteController({
 const HOME_ROUTE: RouteSetup = [
   () =>
     combineCleanups(
-      setupHomeHeroObserver,
+      // setupHomeHeroObserver,
       () => setupSectionThemeTriggers(HOME_SECTIONS, TEXTURE_SECTIONS),
       resetScrollWithHashRestore,
     ),
@@ -398,14 +446,82 @@ refreshObserver.observe(document.body);
 setupRouteController({
   routes: {
     "/": HOME_ROUTE,
+    "/live/*": HOME_ROUTE,
     "/works": WORKS_ROUTE,
     "/works/category/*": WORKS_CATEGORY_ROUTE,
     "/works/tag/*": WORKS_TAG_ROUTE,
   },
-  onRouteChange: [
-    setupContactHeaderTrigger,
-    () => hasContactSection() && document.querySelector("#header") !== null,
-  ],
+  onRouteChange: [() => combineCleanups(), hasHeaderElement],
 });
 
-console.log("360Channel Corp Site Assets Loaded");
+const changeHeaderColor = () => {
+  const header = document.querySelector("#header");
+  if (!header) return null;
+
+  // 1. ヘッダーの現在の位置とサイズを取得
+  const rect = header.getBoundingClientRect();
+
+  // 2. ヘッダーの「左右中央・上下中央」の座標を計算
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+
+  // 3. その座標にある要素を表面から順にすべて取得 (Arrayで返ってくる)
+  let elements = document.elementsFromPoint(centerX, centerY);
+  elements = elements.filter((el) => el !== header && !header.contains(el));
+  // ここで、横幅が60%以上の要素に絞る
+  elements = elements.filter((el) => {
+    const elRect = el.getBoundingClientRect();
+    const overlapWidth =
+      Math.min(elRect.right, rect.right) - Math.max(elRect.left, rect.left);
+    return overlapWidth > rect.width * 0.6;
+  });
+
+  const classifiedElements = elements.map((el) => {
+    const backgroundColor = getComputedStyle(el).backgroundColor;
+    return {
+      element: el,
+      backgroundColor,
+      tone: classifyBackgroundTone(backgroundColor),
+    };
+  });
+
+  // classifiedElementsのうち、それ以外は削除する
+  const filteredClassifiedElements = classifiedElements.filter(
+    ({ tone }) => tone !== BackgroundTone.Other,
+  );
+
+  if (filteredClassifiedElements.length === 0) {
+    return null;
+  }
+
+  // ヘッダの裏の色に基づいて、ヘッダの文字色を変える
+  if (filteredClassifiedElements[0]?.tone == BackgroundTone.Dark) {
+    addHeaderWhite2();
+  } else if (filteredClassifiedElements[0]?.tone == BackgroundTone.Light) {
+    removeHeaderWhite2();
+  }
+};
+
+const handleHeaderOverlapCheck = throttle(() => {
+  changeHeaderColor();
+}, 200);
+
+function onStudioReady(callback: () => void): void {
+  const findStudioCanvas = () => document.querySelector(".StudioCanvas");
+
+  let studioEl = findStudioCanvas();
+
+  const observer = new MutationObserver((a) => {
+    studioEl = findStudioCanvas();
+    if (studioEl) {
+      // observer.disconnect();
+      callback();
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+// 実行
+onStudioReady(handleHeaderOverlapCheck);
+window.addEventListener("scroll", handleHeaderOverlapCheck, { passive: true });

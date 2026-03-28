@@ -1,6 +1,13 @@
 #header {
   color: #000;
 }
+#header-bg {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  mask-image: linear-gradient(to top, transparent 0%, black 35%);
+  -webkit-mask-image: linear-gradient(to top, transparent 0%, black 35%);
+}
+
 #header * {
   color: inherit;
   transition: none;
@@ -83,6 +90,7 @@
   display: -webkit-box;
   text-overflow: ellipsis;
   -webkit-box-orient: vertical;
+  line-clamp: 1;
   -webkit-line-clamp: 1;
 }
 #primary-button,
@@ -240,6 +248,7 @@
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
+  line-clamp: 1;
   -webkit-line-clamp: 1;
 }
 @media (hover: hover) and (pointer: fine) {
