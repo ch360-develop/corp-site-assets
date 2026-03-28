@@ -5,8 +5,13 @@ export default defineConfig({
   // 開発サーバー / プレビューで CORS を許可（userscript 等からのクロスオリジン classic script 対応）
   server: { cors: true },
   preview: { cors: true },
+  css: {
+    // `backdrop-filter` を削除させないため Lightning CSS を使わず PostCSS を使用する
+    transformer: "postcss",
+  },
   build: {
     outDir: "dist", // 出力先フォルダ
+    cssMinify: "esbuild",
     lib: {
       // エントリーポイントの指定
       entry: resolve(__dirname, "src/main.ts"),
