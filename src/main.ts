@@ -149,7 +149,7 @@ function setupSectionThemeTriggers(
 
         for (let i = 1; i <= 5; i++) {
           setTimeout(() => {
-            changeHeaderColor();
+            handleHeaderOverlapCheck();
           }, i * 100);
         }
 
@@ -513,8 +513,14 @@ setupRouteController({
   ],
 });
 
+// #header はレイアウト固定要素のためキャッシュする。
+let cachedHeader: Element | null | undefined = undefined;
+
 const changeHeaderColor = () => {
-  const header = document.querySelector("#header");
+  if (cachedHeader === undefined) {
+    cachedHeader = document.querySelector("#header");
+  }
+  const header = cachedHeader;
   if (!header) return null;
 
   // 1. ヘッダーの現在の位置とサイズを取得
@@ -524,40 +530,30 @@ const changeHeaderColor = () => {
   const centerX = rect.left + rect.width / 2;
   const centerY = rect.top + rect.height / 2;
 
-  // 3. その座標にある要素を表面から順にすべて取得 (Arrayで返ってくる)
-  let elements = document.elementsFromPoint(centerX, centerY);
-  elements = elements.filter((el) => el !== header && !header.contains(el));
-  // ここで、横幅が60%以上の要素に絞る
-  elements = elements.filter((el) => {
+  // ヘッダ幅の60%以上の重なりが必要な閾値を事前計算
+  const minOverlapWidth = rect.width * 0.6;
+
+  // 3. その座標にある要素を、除外条件と重なり判定を1パスで絞る
+  const elements = document.elementsFromPoint(centerX, centerY).filter((el) => {
+    if (el === header || header.contains(el)) return false;
     const elRect = el.getBoundingClientRect();
     const overlapWidth =
       Math.min(elRect.right, rect.right) - Math.max(elRect.left, rect.left);
-    return overlapWidth > rect.width * 0.6;
+    return overlapWidth > minOverlapWidth;
   });
 
-  const classifiedElements = elements.map((el) => {
-    const backgroundColor = getComputedStyle(el).backgroundColor;
-    return {
-      element: el,
-      backgroundColor,
-      tone: classifyBackgroundTone(backgroundColor),
-    };
-  });
-
-  // classifiedElementsのうち、それ以外は削除する
-  const filteredClassifiedElements = classifiedElements.filter(
-    ({ tone }) => tone !== BackgroundTone.Other,
-  );
-
-  if (filteredClassifiedElements.length === 0) {
-    return null;
-  }
-
-  // ヘッダの裏の色に基づいて、ヘッダの文字色を変える
-  if (filteredClassifiedElements[0]?.tone == BackgroundTone.Dark) {
-    addHeaderWhite2();
-  } else if (filteredClassifiedElements[0]?.tone == BackgroundTone.Light) {
-    removeHeaderWhite2();
+  // ヘッダの裏の色に基づいて、ヘッダの文字色を変える。
+  // 先頭から順に評価し、有効なトーンが見つかった時点で終了する（getComputedStyle を最小化）。
+  for (const el of elements) {
+    const tone = classifyBackgroundTone(getComputedStyle(el).backgroundColor);
+    if (tone === BackgroundTone.Dark) {
+      addHeaderWhite2();
+      return;
+    }
+    if (tone === BackgroundTone.Light) {
+      removeHeaderWhite2();
+      return;
+    }
   }
 };
 
