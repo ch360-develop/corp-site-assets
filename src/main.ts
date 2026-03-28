@@ -24,6 +24,7 @@ ScrollTrigger.config({
   // 通常スクロール中のアドレスバー変化でresize由来の自動refreshを走らせない。
   autoRefreshEvents: "visibilitychange,DOMContentLoaded,load",
 });
+ScrollTrigger.normalizeScroll(true);
 
 const IS_IOS_MOBILE_SAFARI = isIOSMobileSafari();
 
@@ -149,13 +150,7 @@ function setupSectionThemeTriggers(
         transition: "background-color 0.5s",
       });
 
-      const switchHeader = isLightColor(colorToRgb(backgroundColor))
-        ? removeHeaderWhite
-        : addHeaderWhite;
-
       const onEnter = () => {
-        switchHeader();
-
         if (IS_IOS_MOBILE_SAFARI) {
           return;
         }
@@ -207,29 +202,6 @@ function hasAllSelectors(
   return (
     document.querySelectorAll(selectors.join(", ")).length === requiredCount
   );
-}
-
-function setupHomeHeroObserver(): Cleanup {
-  const target = document.querySelector("#home-mv");
-  if (!target) {
-    return () => {
-      removeHeaderWhite();
-    };
-  }
-
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(({ isIntersecting }) => {
-      if (isIntersecting) {
-        addHeaderWhite();
-      }
-    });
-  });
-
-  observer.observe(target);
-  return () => {
-    removeHeaderWhite();
-    observer.disconnect();
-  };
 }
 
 function resetScrollWithHashRestore(): void {
