@@ -593,8 +593,6 @@ function onStudioReady(callback: () => void): void {
 // 実行
 onStudioReady(handleHeaderOverlapCheck);
 
-if (!IS_IOS_MOBILE_SAFARI) {
-  window.addEventListener("scroll", handleHeaderOverlapCheck, {
-    passive: true,
-  });
-}
+window.addEventListener("scroll", handleHeaderOverlapCheck, {
+  passive: true,
+});
