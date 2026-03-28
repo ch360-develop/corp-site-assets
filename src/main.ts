@@ -219,17 +219,47 @@ function setupHomeHeroObserver(): Cleanup {
 
 function resetScrollWithHashRestore(): void {
   const { hash } = location;
-  requestAnimationFrame(() => {
-    window.scrollTo({ top: 0 });
+  const supportsScrollRestoration = "scrollRestoration" in window.history;
+  const previousScrollRestoration = supportsScrollRestoration
+    ? window.history.scrollRestoration
+    : undefined;
 
-    if (!hash) {
+  if (supportsScrollRestoration) {
+    window.history.scrollRestoration = "manual";
+  }
+
+  const restoreScrollRestoration = () => {
+    if (supportsScrollRestoration && previousScrollRestoration) {
+      window.history.scrollRestoration = previousScrollRestoration;
+    }
+  };
+
+  // Route transition直後の自動復元に上書きされないよう、短時間だけ先頭を維持する。
+  const lockUntil = performance.now() + 400;
+  const keepTop = () => {
+    if (hash) {
+      const target = document.querySelector(hash);
+      target?.scrollIntoView({ block: "start" });
+    } else {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+
+    if (performance.now() < lockUntil) {
+      requestAnimationFrame(keepTop);
       return;
     }
 
-    requestAnimationFrame(() => {
-      document.querySelector(hash)?.scrollIntoView();
-    });
-  });
+    // if (!hash) {
+    //   restoreScrollRestoration();
+    //   return;
+    // }
+
+    // const target = document.querySelector(hash);
+    // target?.scrollIntoView({ block: "start" });
+    restoreScrollRestoration();
+  };
+
+  requestAnimationFrame(keepTop);
 }
 
 function debounce<T extends unknown[]>(
@@ -451,7 +481,10 @@ setupRouteController({
     "/works/category/*": WORKS_CATEGORY_ROUTE,
     "/works/tag/*": WORKS_TAG_ROUTE,
   },
-  onRouteChange: [() => combineCleanups(), hasHeaderElement],
+  onRouteChange: [
+    () => combineCleanups(resetScrollWithHashRestore),
+    () => true,
+  ],
 });
 
 const changeHeaderColor = () => {
