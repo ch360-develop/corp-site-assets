@@ -18,6 +18,8 @@ let pageCleanup: Cleanup | undefined;
 let currentPath = location.pathname;
 
 gsap.registerPlugin(ScrollTrigger);
+// iOS SafariのURLバー伸縮による高さ変化ではScrollTriggerの内部refreshを走らせない。
+ScrollTrigger.config({ ignoreMobileResize: true });
 
 function combineCleanups(...factories: Array<() => Cleanup | void>): Cleanup {
   const cleanups = factories.map((factory) => factory());
