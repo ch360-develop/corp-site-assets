@@ -17,6 +17,8 @@ let routeCleanup: Cleanup | undefined;
 let pageCleanup: Cleanup | undefined;
 let currentPath = location.pathname;
 
+const IS_IOS_MOBILE_SAFARI = isIOSMobileSafari();
+
 gsap.registerPlugin(ScrollTrigger);
 // iOS SafariのURLバー伸縮による高さ変化ではScrollTriggerの内部refreshを走らせない。
 ScrollTrigger.config({
@@ -25,8 +27,6 @@ ScrollTrigger.config({
   autoRefreshEvents: "visibilitychange,DOMContentLoaded,load",
 });
 ScrollTrigger.normalizeScroll(true);
-
-const IS_IOS_MOBILE_SAFARI = isIOSMobileSafari();
 
 function combineCleanups(...factories: Array<() => Cleanup | void>): Cleanup {
   const cleanups = factories.map((factory) => factory());
@@ -38,20 +38,10 @@ function combineCleanups(...factories: Array<() => Cleanup | void>): Cleanup {
 }
 
 function addHeaderWhite(): void {
-  return;
   document.querySelector("#header")?.classList.add("white");
 }
 
 function removeHeaderWhite(): void {
-  return;
-  document.querySelector("#header")?.classList.remove("white");
-}
-
-function addHeaderWhite2(): void {
-  document.querySelector("#header")?.classList.add("white");
-}
-
-function removeHeaderWhite2(): void {
   document.querySelector("#header")?.classList.remove("white");
 }
 
@@ -342,11 +332,8 @@ function observeWorksList(selector: string): Cleanup | void {
   };
 }
 
-function hasHeaderElement(): boolean {
-  return document.querySelector("#header") !== null;
-}
-
 function isIOSMobileSafari(): boolean {
+  return false;
   const ua = navigator.userAgent;
   const isIOS = /iP(ad|hone|od)/.test(ua);
   const isWebKit = /WebKit/i.test(ua);
@@ -468,21 +455,11 @@ let lastViewportWidth = window.innerWidth;
 
 const refreshObserver = new ResizeObserver(
   debounce(() => {
-    if (isIOSMobileSafari()) {
-      const widthChanged = Math.abs(window.innerWidth - lastViewportWidth) > 1;
-      lastViewportWidth = window.innerWidth;
-
-      // iOS SafariのURLバー伸縮による高さ変化ではrefreshしない。
-      if (!widthChanged) {
-        return;
-      }
-    }
-
     ScrollTrigger.refresh();
-  }, 400),
+  }, 200),
 );
 
-// refreshObserver.observe(document.body);
+refreshObserver.observe(document.body);
 
 setupRouteController({
   routes: {
@@ -498,14 +475,8 @@ setupRouteController({
   ],
 });
 
-// #header はレイアウト固定要素のためキャッシュする。
-let cachedHeader: Element | null | undefined = undefined;
-
 const changeHeaderColor = () => {
-  if (cachedHeader === undefined) {
-    cachedHeader = document.querySelector("#header");
-  }
-  const header = cachedHeader;
+  const header = document.getElementById("header");
   if (!header) return null;
 
   // 1. ヘッダーの現在の位置とサイズを取得
@@ -532,11 +503,11 @@ const changeHeaderColor = () => {
   for (const el of elements) {
     const tone = classifyBackgroundTone(getComputedStyle(el).backgroundColor);
     if (tone === BackgroundTone.Dark) {
-      addHeaderWhite2();
+      addHeaderWhite();
       return;
     }
     if (tone === BackgroundTone.Light) {
-      removeHeaderWhite2();
+      removeHeaderWhite();
       return;
     }
   }
