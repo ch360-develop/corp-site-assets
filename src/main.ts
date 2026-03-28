@@ -495,7 +495,7 @@ const refreshObserver = new ResizeObserver(
   }, 400),
 );
 
-refreshObserver.observe(document.body);
+// refreshObserver.observe(document.body);
 
 setupRouteController({
   routes: {
