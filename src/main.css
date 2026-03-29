@@ -1,3 +1,11 @@
+body {
+  font-family:
+    "Noto Sans JP",
+    -apple-system,
+    "Hiragino Kaku Gothic ProN",
+    "BIZ UDPGothic",
+    sans-serif;
+}
 #header {
   color: #000;
 }
