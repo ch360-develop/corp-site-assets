@@ -1,95 +1,61 @@
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { throttle } from "throttle-debounce";
+import { HomeModule } from "./HomeModule";
 import "./main.css";
 
-type Cleanup = () => void;
-type RouteSetup = [setup: () => Cleanup | void, isReady?: () => boolean];
+// 監視対象の要素（Nuxtのルート要素）
+const targetNode = document.querySelector("#__nuxt");
 
-const HOME_SECTIONS = [
-  "#press-release",
-  "#business",
-  "#home-works",
-  "#company",
-];
-const TEXTURE_SECTIONS = ["#home-works", "#company"];
+const InitialPathname = "__INITIAL_PATHNAME__"; // 初期値を特定の文字列に設定
 
-let routeCleanup: Cleanup | undefined;
-let pageCleanup: Cleanup | undefined;
-let currentPath = location.pathname;
+let currentPathname = InitialPathname;
+let homeModule: HomeModule | null = null;
 
-const IS_IOS_MOBILE_SAFARI = isIOSMobileSafari();
+const observer = new MutationObserver(
+  // ページ遷移（DOMの変更）を検知
+  throttle(100, () => {
+    console.log(`MutationObserverが変化を検知しました: ${location.pathname}`);
+    if (currentPathname !== location.pathname) {
+      console.log(
+        `ページ遷移によるレンダリングを検知しました: ${currentPathname} -> ${location.pathname}`,
+      );
 
-gsap.registerPlugin(ScrollTrigger);
-// iOS SafariのURLバー伸縮による高さ変化ではScrollTriggerの内部refreshを走らせない。
-ScrollTrigger.config({
-  ignoreMobileResize: true,
-  // 通常スクロール中のアドレスバー変化でresize由来の自動refreshを走らせない。
-  autoRefreshEvents: "visibilitychange,DOMContentLoaded,load",
-});
-ScrollTrigger.normalizeScroll(true);
+      // ルーティングに応じてHomeModuleをマウント・アンマウント
+      if (location.pathname === "/") {
+        if (!homeModule) {
+          if (HomeModule.isReady()) {
+            homeModule = new HomeModule();
+            currentPathname = location.pathname;
+            console.log("HomeModuleをマウントしました");
+          } else {
+            console.log("HomeModuleの必要な要素がまだ存在しません。");
+          }
+        }
+      } else {
+        currentPathname = location.pathname;
+        if (homeModule) {
+          homeModule.destroy();
+          homeModule = null;
+        }
+      }
+    }
+    handleHeaderOverlapCheck();
+  }),
+);
 
-function combineCleanups(...factories: Array<() => Cleanup | void>): Cleanup {
-  const cleanups = factories.map((factory) => factory());
-  return () => {
-    cleanups.forEach((cleanup) => {
-      cleanup?.();
-    });
-  };
-}
+// 監視設定（子要素の変化を追跡）
+observer.observe(targetNode!, { childList: true, subtree: true });
 
-function addHeaderWhite(): void {
-  document.querySelector("#header")?.classList.add("white");
-}
-
-function removeHeaderWhite(): void {
-  document.querySelector("#header")?.classList.remove("white");
-}
-
-function isTransparentColor(color: string): boolean {
-  return (
-    color === "rgba(0, 0, 0, 0)" ||
-    color === "transparent" ||
-    color === "rgb(0 0 0 / 0)"
+window.addEventListener("header:change-color", (e) => {
+  const detail = (e as CustomEvent).detail;
+  console.log(
+    `header:change-colorイベントを受け取りました: ${JSON.stringify(detail)}`,
   );
-}
-
-function hexToRgb(color: string): [number, number, number] {
-  const shortHex = color.length <= 4;
-  const matched = shortHex
-    ? /^#?([a-f\d])([a-f\d])([a-f\d])$/i.exec(color)
-    : /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
-
-  if (!matched) {
-    return [0, 0, 0];
+  if (detail && detail.color && detail.color === "white") {
+    document.querySelector("#header")?.classList.add("white");
+  } else {
+    document.querySelector("#header")?.classList.remove("white");
   }
-
-  const scale = shortHex ? 17 : 1;
-  return [
-    Number.parseInt(matched[1] ?? "0", 16) * scale,
-    Number.parseInt(matched[2] ?? "0", 16) * scale,
-    Number.parseInt(matched[3] ?? "0", 16) * scale,
-  ];
-}
-
-function colorToRgb(color: string): [number, number, number] {
-  if (color.startsWith("#")) {
-    return hexToRgb(color);
-  }
-
-  const values = color
-    .match(/\d+/g)
-    ?.slice(0, 3)
-    .map((value) => Number(value));
-  if (!values || values.length < 3) {
-    return [0, 0, 0];
-  }
-
-  return [values[0] ?? 0, values[1] ?? 0, values[2] ?? 0];
-}
-
-function isLightColor([red, green, blue]: [number, number, number]): boolean {
-  return red * 0.299 + green * 0.587 + blue * 0.114 >= 186;
-}
+});
 
 enum BackgroundTone {
   Dark,
@@ -97,13 +63,13 @@ enum BackgroundTone {
   Other,
 }
 
-function classifyBackgroundTone(color: string): BackgroundTone {
-  if (isTransparentColor(color)) {
+function classifyBackgroundTone(el: HTMLElement): BackgroundTone {
+  const color = getRGBAValues(el);
+  if (color.a < 0.6) {
     return BackgroundTone.Other;
   }
 
-  const [red, green, blue] = colorToRgb(color);
-  const brightness = red * 0.299 + green * 0.587 + blue * 0.114;
+  const brightness = color.r * 0.299 + color.g * 0.587 + color.b * 0.114;
 
   if (brightness <= 80) {
     return BackgroundTone.Dark;
@@ -116,364 +82,29 @@ function classifyBackgroundTone(color: string): BackgroundTone {
   return BackgroundTone.Other;
 }
 
-function setupSectionThemeTriggers(
-  selectors: string[],
-  textureSelectors: string[] = [],
-): Cleanup {
-  if (IS_IOS_MOBILE_SAFARI) {
-    return () => {};
+function getRGBAValues(el: HTMLElement): {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+} {
+  const style = getComputedStyle(el).backgroundColor;
+
+  // 文字列から数字（整数および小数点）だけを抽出して配列にする
+  // 例: "rgba(255, 0, 0, 0.5)" -> ["255", "0", "0", "0.5"]
+  const matches = style.match(/[\d.]+/g);
+
+  if (!matches || !matches[0] || !matches[1] || !matches[2]) {
+    return { r: 0, g: 0, b: 0, a: 0 };
   }
-  const context = gsap.context(() => {
-    selectors.forEach((selector) => {
-      const section = document.querySelector(selector) as HTMLElement | null;
-      if (!section) {
-        return;
-      }
 
-      const backgroundColor = (() => {
-        const color = window.getComputedStyle(section).backgroundColor;
-        return isTransparentColor(color) ? "black" : color;
-      })();
-
-      gsap.set(selector, {
-        background: "var(--active-bg-color, black)",
-        transition: "background-color 0.5s",
-      });
-
-      const onEnter = () => {
-        if (IS_IOS_MOBILE_SAFARI) {
-          return;
-        }
-
-        for (let i = 1; i <= 5; i++) {
-          setTimeout(() => {
-            handleHeaderOverlapCheck();
-          }, i * 100);
-        }
-
-        gsap.set("body", { "--active-bg-color": backgroundColor });
-
-        if (textureSelectors.includes(selector)) {
-          gsap.set("body", { "--active-texture-opacity": 0.7 });
-        }
-      };
-
-      const onLeave = () => {
-        gsap.set("body", { "--active-texture-opacity": 0 });
-      };
-
-      ScrollTrigger.create({
-        trigger: section,
-        start: "top 50%",
-        end: "bottom 50%",
-        onEnter,
-        onEnterBack: onEnter,
-        onLeave,
-        onLeaveBack: onLeave,
-      });
-    });
-
-    return () => {
-      document.body.style.background = "";
-      document.body.style.removeProperty("--active-bg-color");
-      document.body.style.removeProperty("--active-texture-opacity");
-    };
-  });
-
-  return () => {
-    context.revert();
+  return {
+    r: parseInt(matches[0], 10),
+    g: parseInt(matches[1], 10),
+    b: parseInt(matches[2], 10),
+    a: matches[3] ? parseFloat(matches[3]) : 1.0,
   };
 }
-
-function hasAllSelectors(
-  selectors: string[],
-  requiredCount = selectors.length,
-): boolean {
-  return (
-    document.querySelectorAll(selectors.join(", ")).length === requiredCount
-  );
-}
-
-function resetScrollWithHashRestore(): void {
-  const { hash } = location;
-  const supportsScrollRestoration = "scrollRestoration" in window.history;
-  const previousScrollRestoration = supportsScrollRestoration
-    ? window.history.scrollRestoration
-    : undefined;
-
-  if (supportsScrollRestoration) {
-    window.history.scrollRestoration = "manual";
-  }
-
-  const restoreScrollRestoration = () => {
-    if (supportsScrollRestoration && previousScrollRestoration) {
-      window.history.scrollRestoration = previousScrollRestoration;
-    }
-  };
-
-  // Route transition直後の自動復元に上書きされないよう、短時間だけ先頭を維持する。
-  const lockUntil = performance.now() + 400;
-  const keepTop = () => {
-    if (hash) {
-      const target = document.querySelector(hash);
-      target?.scrollIntoView({ block: "start" });
-    } else {
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    }
-
-    if (performance.now() < lockUntil) {
-      requestAnimationFrame(keepTop);
-      return;
-    }
-
-    // if (!hash) {
-    //   restoreScrollRestoration();
-    //   return;
-    // }
-
-    // const target = document.querySelector(hash);
-    // target?.scrollIntoView({ block: "start" });
-    restoreScrollRestoration();
-
-    requestAnimationFrame(() => ScrollTrigger.refresh());
-  };
-
-  requestAnimationFrame(keepTop);
-}
-
-function debounce<T extends unknown[]>(
-  fn: (...args: T) => void,
-  delayMs: number,
-): (...args: T) => void {
-  let timerId: number | undefined;
-
-  return (...args: T) => {
-    window.clearTimeout(timerId);
-    timerId = window.setTimeout(() => fn(...args), delayMs);
-  };
-}
-
-function throttle<T extends unknown[]>(
-  fn: (...args: T) => void,
-  delayMs: number,
-): (...args: T) => void {
-  let lastRunAt = 0;
-  let timerId: number | undefined;
-  let lastArgs: T | undefined;
-
-  return (...args: T) => {
-    const now = Date.now();
-    const remainingMs = delayMs - (now - lastRunAt);
-
-    lastArgs = args;
-
-    if (remainingMs <= 0) {
-      window.clearTimeout(timerId);
-      timerId = undefined;
-      lastRunAt = now;
-      fn(...args);
-      return;
-    }
-
-    if (timerId !== undefined) {
-      return;
-    }
-
-    timerId = window.setTimeout(() => {
-      lastRunAt = Date.now();
-      timerId = undefined;
-
-      if (lastArgs) {
-        fn(...lastArgs);
-      }
-    }, remainingMs);
-  };
-}
-
-function updateWorksListAlignment(selector: string): void {
-  const container = document.querySelector(selector);
-  if (!container) {
-    return;
-  }
-
-  const listItemsCount = container.querySelectorAll(":scope > li").length;
-  if (listItemsCount <= 3) {
-    return;
-  }
-
-  const remainder = listItemsCount % 3;
-  if (remainder === 2) {
-    container.classList.add("last-two");
-    return;
-  }
-
-  if (remainder === 1) {
-    container.classList.add("last-one");
-    return;
-  }
-
-  container.classList.add("just");
-}
-
-function observeWorksList(selector: string): Cleanup | void {
-  const container = document.querySelector(selector);
-  if (!container) {
-    return;
-  }
-
-  updateWorksListAlignment(selector);
-  const observer = new MutationObserver(() => {
-    updateWorksListAlignment(selector);
-  });
-
-  observer.observe(container, { childList: true, subtree: false });
-  return () => {
-    observer.disconnect();
-  };
-}
-
-function isIOSMobileSafari(): boolean {
-  return false;
-  const ua = navigator.userAgent;
-  const isIOS = /iP(ad|hone|od)/.test(ua);
-  const isWebKit = /WebKit/i.test(ua);
-  const isCriOS = /CriOS/i.test(ua);
-  const isFxiOS = /FxiOS/i.test(ua);
-
-  return isIOS && isWebKit && !isCriOS && !isFxiOS;
-}
-
-function normalizePathname(pathname: string): string {
-  return pathname.replace(/\/$/, "") || "/";
-}
-
-function resolveRoute(
-  routes: Record<string, RouteSetup>,
-  pathname: string,
-): RouteSetup | undefined {
-  const normalized = normalizePathname(pathname);
-  const exact = routes[normalized];
-  if (exact) {
-    return exact;
-  }
-
-  const parts = normalized.split("/");
-  for (let index = parts.length - 1; index > 0; index -= 1) {
-    const wildcardPath = `${parts.slice(0, index).join("/")}/*`;
-    const matched = routes[wildcardPath];
-    if (matched) {
-      return matched;
-    }
-  }
-
-  return undefined;
-}
-
-function setupRouteController({
-  routes,
-  onRouteChange,
-}: {
-  routes: Record<string, RouteSetup>;
-  onRouteChange?: RouteSetup;
-}): void {
-  const toCleanup = (
-    result: Cleanup | void | undefined,
-  ): Cleanup | undefined => {
-    if (typeof result === "function") {
-      return result;
-    }
-
-    return undefined;
-  };
-
-  Object.keys(routes).some((path) => {
-    if (path.endsWith("/") && path !== "/") {
-      console.error(`Route path "${path}" ends with a slash`);
-    }
-    return false;
-  });
-
-  const runForPath = (pathname: string) => {
-    const route = resolveRoute(routes, pathname);
-
-    document.body.setAttribute("data-route-path", pathname);
-    routeCleanup?.();
-    pageCleanup?.();
-
-    routeCleanup = toCleanup(onRouteChange?.[0]?.());
-    pageCleanup = toCleanup(route?.[0]?.());
-  };
-
-  const appRoot = document.querySelector("#__nuxt");
-  new MutationObserver(() => {
-    const routeReady =
-      resolveRoute(routes, location.pathname)?.[1] ?? (() => true);
-    const globalReady = onRouteChange?.[1] ?? (() => true);
-
-    if (
-      currentPath === location.pathname ||
-      appRoot?.children.length === 2 ||
-      !globalReady() ||
-      !routeReady()
-    ) {
-      return;
-    }
-
-    currentPath = location.pathname;
-    runForPath(currentPath);
-  }).observe(document.body, { childList: true, subtree: true });
-
-  runForPath(currentPath);
-}
-
-const HOME_ROUTE: RouteSetup = [
-  () =>
-    combineCleanups(
-      // setupHomeHeroObserver,
-      () => setupSectionThemeTriggers(HOME_SECTIONS, TEXTURE_SECTIONS),
-      // resetScrollWithHashRestore,
-    ),
-  () => hasAllSelectors([...HOME_SECTIONS, "#home-mv"]),
-];
-
-const WORKS_ROUTE: RouteSetup = [
-  () => combineCleanups(() => observeWorksList("#works-list")),
-  () => hasAllSelectors(["#works-list"]),
-];
-
-const WORKS_TAG_ROUTE: RouteSetup = [
-  () => combineCleanups(() => observeWorksList("#works-list-tag")),
-  () => hasAllSelectors(["#works-list-tag"]),
-];
-
-const WORKS_CATEGORY_ROUTE: RouteSetup = [
-  () => combineCleanups(() => observeWorksList("#works-list-category")),
-  () => hasAllSelectors(["#works-list-category"]),
-];
-
-let lastViewportWidth = window.innerWidth;
-
-const refreshObserver = new ResizeObserver(
-  debounce(() => {
-    ScrollTrigger.refresh();
-  }, 200),
-);
-
-refreshObserver.observe(document.body);
-
-setupRouteController({
-  routes: {
-    "/": HOME_ROUTE,
-    "/live/*": HOME_ROUTE,
-    "/works": WORKS_ROUTE,
-    "/works/category/*": WORKS_CATEGORY_ROUTE,
-    "/works/tag/*": WORKS_TAG_ROUTE,
-  },
-  onRouteChange: [
-    () => combineCleanups(resetScrollWithHashRestore),
-    () => true,
-  ],
-});
 
 const changeHeaderColor = () => {
   const header = document.getElementById("header");
@@ -501,41 +132,43 @@ const changeHeaderColor = () => {
   // ヘッダの裏の色に基づいて、ヘッダの文字色を変える。
   // 先頭から順に評価し、有効なトーンが見つかった時点で終了する（getComputedStyle を最小化）。
   for (const el of elements) {
-    const tone = classifyBackgroundTone(getComputedStyle(el).backgroundColor);
+    const tone = classifyBackgroundTone(el as HTMLElement);
     if (tone === BackgroundTone.Dark) {
-      addHeaderWhite();
+      const event = new CustomEvent("header:change-color", {
+        detail: {
+          color: "white",
+          timestamp: Date.now(),
+          reason: "Background is classified as Dark",
+        },
+      });
+      window.dispatchEvent(event);
+
       return;
     }
     if (tone === BackgroundTone.Light) {
-      removeHeaderWhite();
+      const event = new CustomEvent("header:change-color", {
+        detail: {
+          color: "black",
+          timestamp: Date.now(),
+          reason: "Background is classified as Light",
+        },
+      });
+      window.dispatchEvent(event);
+
       return;
     }
   }
 };
 
-const handleHeaderOverlapCheck = throttle(() => {
+const handleHeaderOverlapCheck = throttle(200, () => {
   changeHeaderColor();
-}, 200);
-
-function onStudioReady(callback: () => void): void {
-  const findStudioCanvas = () => document.querySelector(".StudioCanvas");
-
-  let studioEl = findStudioCanvas();
-
-  const observer = new MutationObserver((a) => {
-    studioEl = findStudioCanvas();
-    if (studioEl) {
-      // observer.disconnect();
-      callback();
-    }
-  });
-
-  observer.observe(document.body, { childList: true, subtree: true });
-}
-
-// 実行
-onStudioReady(handleHeaderOverlapCheck);
+});
 
 window.addEventListener("scroll", handleHeaderOverlapCheck, {
   passive: true,
+});
+
+window.addEventListener("header:check-overlap", (e) => {
+  console.log(JSON.stringify((e as CustomEvent).detail));
+  handleHeaderOverlapCheck();
 });

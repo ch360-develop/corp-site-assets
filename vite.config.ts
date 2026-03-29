@@ -27,5 +27,10 @@ export default defineConfig({
     },
     // ミニファイ（軽量化）を有効にする
     minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true, // コンソール出力を削除
+      },
+    },
   },
 });
