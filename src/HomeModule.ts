@@ -1,11 +1,17 @@
 export class HomeModule {
-  public static readonly REQUIRED_SELECTORS = [
+  public static readonly INTERSECTION_SELECTORS = [
     "#home-mv",
     "#press-release",
     "#business",
     "#home-works",
     "#company",
     "#contact-wrapper",
+  ];
+
+  // INTERSECTION_SELECTORSに#headerを加えたもの
+  public static readonly REQUIRED_SELECTORS = [
+    "#header",
+    ...HomeModule.INTERSECTION_SELECTORS,
   ];
 
   public static readonly BLACK_SECTIONS = [
@@ -31,7 +37,7 @@ export class HomeModule {
   private init() {
     console.log("HomeModule init");
     // #business 直下に divを配置する. absoluteでtopは50vhの位置に置く
-    HomeModule.REQUIRED_SELECTORS.forEach((selector) => {
+    HomeModule.INTERSECTION_SELECTORS.forEach((selector) => {
       const el = document.querySelector(selector);
 
       if (el) {
@@ -71,7 +77,7 @@ const intersectionCallback = (target: string, isIntersecting: boolean) => {
     toBlack = true;
   }
 
-  HomeModule.REQUIRED_SELECTORS.forEach((selector) => {
+  HomeModule.INTERSECTION_SELECTORS.forEach((selector) => {
     const section = document.querySelector(selector) as HTMLElement;
     if (section) {
       section.style.background = `var(--active-bg-color, ${toBlack ? "black" : "white"})`;
