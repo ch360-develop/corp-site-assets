@@ -80,7 +80,7 @@ const intersectionCallback = (target: string, isIntersecting: boolean) => {
   HomeModule.INTERSECTION_SELECTORS.forEach((selector) => {
     const section = document.querySelector(selector) as HTMLElement;
     if (section) {
-      section.style.background = `var(--active-bg-color, ${toBlack ? "black" : "#f3f3f3"})`;
+      section.style.background = `${toBlack ? "black" : "#f3f3f3"}`;
       section.style.transition = "background-color 0.5s";
     }
   });
