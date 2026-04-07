@@ -83,16 +83,6 @@ body {
   mask: url(https://storage.googleapis.com/studio-design-asset-files/projects/XKOk7PmMO4/s-184x35_79f20b65-e84d-4f34-b619-31c337db187d.svg)
     center/contain no-repeat;
 }
-#header-recruit > a > p:after {
-  content: "";
-  mask: url(data:image/svg+xml;charset=utf8,%3Csvg%20width%3D%2214%22%20height%3D%2214%22%20viewBox%3D%220%200%2014%2014%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Cpath%20d%3D%22M4.67853%204.5H2C1.72386%204.5%201.5%204.72386%201.5%205V12C1.5%2012.2761%201.72386%2012.5%202%2012.5H9C9.27614%2012.5%209.5%2012.2761%209.5%2012V9.37569%22%20stroke%3D%22black%22%2F%3E%0A%3Cpath%20d%3D%22M12%201.5H5C4.72386%201.5%204.5%201.72386%204.5%202V9C4.5%209.27614%204.72386%209.5%205%209.5H12C12.2761%209.5%2012.5%209.27614%2012.5%209V2C12.5%201.72386%2012.2761%201.5%2012%201.5Z%22%20stroke%3D%22black%22%2F%3E%0A%3C%2Fsvg%3E%0A)
-    50% / contain no-repeat;
-  width: 11px;
-  height: 11px;
-  margin-left: 6px;
-  position: relative;
-  top: 1px;
-}
 #breadcrumb #article-title {
   overflow: hidden;
   display: -webkit-box;
@@ -238,13 +228,13 @@ body {
   top: 0;
 }
 #home-mv #video iframe {
-    border: none;
-    width: auto;
-    min-height: 100%;
-    height: 100%;
-    aspect-ratio: 16 / 9;
-    pointer-events: none;
-    user-select: none;
+  border: none;
+  width: auto;
+  min-height: 100%;
+  height: 100%;
+  aspect-ratio: 16 / 9;
+  pointer-events: none;
+  user-select: none;
 }
 #press-release {
   overflow: hidden;
